@@ -1,0 +1,164 @@
+diff -uNr webkit-0~svn25144.orig/WebCore/rendering/break_lines.cpp webkit-0~svn25144/WebCore/rendering/break_lines.cpp
+--- webkit-0~svn25144.orig/WebCore/rendering/break_lines.cpp	2008-01-16 19:22:49.000000000 +0700
++++ webkit-0~svn25144/WebCore/rendering/break_lines.cpp	2008-01-16 19:28:08.000000000 +0700
+@@ -111,4 +111,137 @@
+     return len;
+ }
+ 
++#if PLATFORM(UNIX)
++/* Thai Support 
++ * If HAVE_LIBTHAI is defined, libkhtml will link against
++ * libthai since compile time. Otherwise it will try to
++ * dlopen at run-time
++ *
++ * Ott Pattara, Jakkapun Kwanroengjai 16 Jan 2008
++ */
++#ifndef HAVE_LIBTHAI
++typedef int (*th_brk_def)(const unsigned char*, int[], int);
++static th_brk_def th_brk = 0;
++typedef int (*th_uni2tis_line_def)(const wchar_t*, unsigned char*, int);
++static th_uni2tis_line_def th_uni2tis_line = 0;
++#else
++#include <thai/thailib.h>
++#include <thai/thbrk.h>
++#endif
++
++struct ThaiCache
++{
++    ThaiCache() {
++        string = 0;
++        allocated = 0x400;
++        wbrpos = (int *) malloc(allocated*sizeof(int));
++        numwbrpos = 0;
++        numisbreakable = 0x400;
++        isbreakable = (int *) malloc(numisbreakable*sizeof(int));
++    }
++    ~ThaiCache() {
++        free(wbrpos);
++        free(isbreakable);
++    }
++    //const unsigned char *string;
++	const UChar* string;
++    int *wbrpos;
++    int *isbreakable;
++    int allocated;
++    int numwbrpos,numisbreakable;
++};
++static ThaiCache *cache = 0;
++
++void cleanup_thaibreaks()
++{
++    delete cache;
++    cache = 0;
++#ifndef HAVE_LIBTHAI
++    th_brk = 0;
++	th_uni2tis_line = 0;
++#endif
++}
++
++/* Need dlfcn.h for the routines to dynamically load
++ * thai word cut library so that there is no need to
++ * include the header file when compilng
++*/
++#include <dlfcn.h>
++bool isBreakableThai( const UChar *string, const int pos, const int len)
++{
++	unsigned char* tis_char;
++	void* module;
++	static int trymore = 1;
++	const char *error;
++
++    /* load libthai dynamically */
++    if (!th_brk && !th_uni2tis_line && !trymore) {
++      return 0;
++    } else if ( !th_brk && trymore ) {
++    	module = dlopen("libthai.so", RTLD_LAZY);
++    	if (!module) {
++      	  printf("Warning: couldn't open libthai.so: %s, thai word break feature disabled\n", dlerror());
++          // no wordcut library, break anywhere is ok
++          trymore = 0;
++          return 0;
++        } else {
++          /* Get symbol */
++          dlerror();
++          th_brk = (th_brk_def) dlsym(module, "th_brk");
++		  th_uni2tis_line = (th_uni2tis_line_def) dlsym(module, "th_uni2tis_line");
++
++          if (error = dlerror()) {
++            printf("Warning: couldn't find libthai: %s\n",error);
++            // no working wordcut library, break anywhere is ok
++            trymore = 0;
++            return 0;
++          } else {
++            printf("Libthai loaded successfully..\n");
++	  	  }
++        }
++    }
++
++    if (!th_brk || !th_uni2tis_line)
++        return 0;
++	if (!cache)
++        cache = new ThaiCache;
++ 	if (string != cache->string) {
++ 	//Convert from Unicode to TIS
++		wchar_t *w_char = (wchar_t*) malloc(len*sizeof(wchar_t));
++		for (int i = 0;i < len; i++) {
++			w_char[i] = string[i];
++		}
++		tis_char = (unsigned char*) malloc(len*sizeof(unsigned char));
++		th_uni2tis_line(w_char, tis_char, len);
++//   		for (int i = 0; i < len; i++)
++//   			printf("tis_char[%d] = %d \n", i, tis_char[i]);
++
++        cache->numwbrpos = th_brk((const unsigned char*)tis_char, cache->wbrpos, cache->allocated);
++         //fprintf(stderr,"libthai returns with value %d\n",cache->numwbrpos);
++
++		if (cache->numwbrpos >= cache->allocated) {
++            cache->allocated = len;
++            cache->wbrpos = (int *)realloc(cache->wbrpos, cache->allocated*sizeof(int));
++            cache->numwbrpos = th_brk(tis_char, cache->wbrpos, cache->allocated);
++  	    }
++  	    if ( len > cache->numisbreakable ) {
++  			cache->numisbreakable=len;
++            cache->isbreakable = (int *)realloc(cache->isbreakable, cache->numisbreakable*sizeof(int));
++  	    }
++  	    for (int i = 0 ; i < len ; ++i) {
++  			cache->isbreakable[i] = 0;
++  	    }
++        if ( cache->numwbrpos > 0 ) {
++        	for (int i = cache->numwbrpos-1; i >= 0; --i) {
++            	cache->isbreakable[cache->wbrpos[i]] = 1;
++  			}
++  	    }
++        cache->string = string;
++		delete(tis_char);
++		delete(w_char);
++ 	}
++
++	return cache->isbreakable[pos];
++}
++#endif
+ } // namespace WebCore
+diff -uNr webkit-0~svn25144.orig/WebCore/rendering/break_lines.h webkit-0~svn25144/WebCore/rendering/break_lines.h
+--- webkit-0~svn25144.orig/WebCore/rendering/break_lines.h	2008-01-16 19:22:49.000000000 +0700
++++ webkit-0~svn25144/WebCore/rendering/break_lines.h	2008-01-16 19:28:44.000000000 +0700
+@@ -28,9 +28,19 @@
+ namespace WebCore {
+ 
+     int nextBreakablePosition(const UChar*, int pos, int len, bool breakNBSP = false);
++	#if PLATFORM(UNIX)
++	bool isBreakableThai( const UChar *string, const int pos, const int len);
++	void cleanup_thaibreaks();
++	#endif
+ 
+     inline bool isBreakable(const UChar* str, int pos, int len, int& nextBreakable, bool breakNBSP = false)
+     {
++		#if PLATFORM(UNIX)
++		const UChar* uch = str + pos;
++		if ((unsigned short)*uch >= 0x0e00 && (unsigned short)*uch < 0x0e80) { // 0e00 - 0e7f == Thai
++			return isBreakableThai(str, pos, len);
++		}
++		#endif
+         if (pos > nextBreakable)
+             nextBreakable = nextBreakablePosition(str, pos, len, breakNBSP);
+         return pos == nextBreakable;
