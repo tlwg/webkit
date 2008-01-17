@@ -1,7 +1,7 @@
 diff -uNr webkit-0~svn25144.orig/WebCore/rendering/break_lines.cpp webkit-0~svn25144/WebCore/rendering/break_lines.cpp
 --- webkit-0~svn25144.orig/WebCore/rendering/break_lines.cpp	2008-01-16 19:22:49.000000000 +0700
-+++ webkit-0~svn25144/WebCore/rendering/break_lines.cpp	2008-01-16 19:28:08.000000000 +0700
-@@ -111,4 +111,137 @@
++++ webkit-0~svn25144/WebCore/rendering/break_lines.cpp	2008-01-17 11:09:31.000000000 +0700
+@@ -111,4 +111,138 @@
      return len;
  }
  
@@ -101,38 +101,39 @@ diff -uNr webkit-0~svn25144.orig/WebCore/rendering/break_lines.cpp webkit-0~svn2
 +        cache = new ThaiCache;
 + 	if (string != cache->string) {
 + 	//Convert from Unicode to TIS
-+		wchar_t *w_char = (wchar_t*) malloc(len*sizeof(wchar_t));
-+		for (int i = 0;i < len; i++) {
-+			w_char[i] = string[i];
-+		}
-+		tis_char = (unsigned char*) malloc(len*sizeof(unsigned char));
-+		th_uni2tis_line(w_char, tis_char, len);
++	  wchar_t *w_char = (wchar_t*) malloc(len*sizeof(wchar_t));
++	  for (int i = 0;i < len; i++) {
++	    w_char[i] = string[i];
++	  }
++	  tis_char = (unsigned char*) malloc(len*sizeof(unsigned char));
++	  th_uni2tis_line(w_char, tis_char, len);
 +//   		for (int i = 0; i < len; i++)
 +//   			printf("tis_char[%d] = %d \n", i, tis_char[i]);
 +
-+        cache->numwbrpos = th_brk((const unsigned char*)tis_char, cache->wbrpos, cache->allocated);
++          cache->numwbrpos = th_brk((const unsigned char*)tis_char, cache->wbrpos, cache->allocated);
 +         //fprintf(stderr,"libthai returns with value %d\n",cache->numwbrpos);
 +
-+		if (cache->numwbrpos >= cache->allocated) {
-+            cache->allocated = len;
-+            cache->wbrpos = (int *)realloc(cache->wbrpos, cache->allocated*sizeof(int));
-+            cache->numwbrpos = th_brk(tis_char, cache->wbrpos, cache->allocated);
++	  if (cache->numwbrpos >= cache->allocated) {
++	    cache->allocated = len;
++           cache->wbrpos = (int *)realloc(cache->wbrpos, cache->allocated*sizeof(int));
++           cache->numwbrpos = th_brk(tis_char, cache->wbrpos, cache->allocated);
++	    cache->wbrpos = (int *)realloc(cache->wbrpos, cache->numwbrpos*sizeof(int));	
++  	  }
++  	  if ( len > cache->numisbreakable ) {
++  	    cache->numisbreakable=len;
++           cache->isbreakable = (int *)realloc(cache->isbreakable, cache->numisbreakable*sizeof(int));
++  	  }
++  	  for (int i = 0 ; i < len ; ++i) {
++  	    cache->isbreakable[i] = 0;
++  	  }
++      	  if ( cache->numwbrpos > 0 ) {
++            for (int i = cache->numwbrpos-1; i >= 0; --i) {
++              cache->isbreakable[cache->wbrpos[i]] = 1;
 +  	    }
-+  	    if ( len > cache->numisbreakable ) {
-+  			cache->numisbreakable=len;
-+            cache->isbreakable = (int *)realloc(cache->isbreakable, cache->numisbreakable*sizeof(int));
-+  	    }
-+  	    for (int i = 0 ; i < len ; ++i) {
-+  			cache->isbreakable[i] = 0;
-+  	    }
-+        if ( cache->numwbrpos > 0 ) {
-+        	for (int i = cache->numwbrpos-1; i >= 0; --i) {
-+            	cache->isbreakable[cache->wbrpos[i]] = 1;
-+  			}
-+  	    }
-+        cache->string = string;
-+		delete(tis_char);
-+		delete(w_char);
++  	  }
++         cache->string = string;
++	  delete(tis_char);
++	  delete(w_char);
 + 	}
 +
 +	return cache->isbreakable[pos];
@@ -141,7 +142,7 @@ diff -uNr webkit-0~svn25144.orig/WebCore/rendering/break_lines.cpp webkit-0~svn2
  } // namespace WebCore
 diff -uNr webkit-0~svn25144.orig/WebCore/rendering/break_lines.h webkit-0~svn25144/WebCore/rendering/break_lines.h
 --- webkit-0~svn25144.orig/WebCore/rendering/break_lines.h	2008-01-16 19:22:49.000000000 +0700
-+++ webkit-0~svn25144/WebCore/rendering/break_lines.h	2008-01-16 19:28:44.000000000 +0700
++++ webkit-0~svn25144/WebCore/rendering/break_lines.h	2008-01-17 11:11:54.000000000 +0700
 @@ -28,9 +28,19 @@
  namespace WebCore {
  
@@ -153,12 +154,12 @@ diff -uNr webkit-0~svn25144.orig/WebCore/rendering/break_lines.h webkit-0~svn251
  
      inline bool isBreakable(const UChar* str, int pos, int len, int& nextBreakable, bool breakNBSP = false)
      {
-+		#if PLATFORM(UNIX)
-+		const UChar* uch = str + pos;
-+		if ((unsigned short)*uch >= 0x0e00 && (unsigned short)*uch < 0x0e80) { // 0e00 - 0e7f == Thai
-+			return isBreakableThai(str, pos, len);
-+		}
-+		#endif
++	#if PLATFORM(UNIX)
++	const UChar* uch = str + pos;
++	if ((unsigned short)*uch >= 0x0e00 && (unsigned short)*uch < 0x0e80) { // 0e00 - 0e7f == Thai
++		return isBreakableThai(str, pos, len);
++	}
++	#endif
          if (pos > nextBreakable)
              nextBreakable = nextBreakablePosition(str, pos, len, breakNBSP);
          return pos == nextBreakable;
