@@ -1,7 +1,7 @@
 diff -uNr webkit-0~svn25144.orig/WebCore/rendering/break_lines.cpp webkit-0~svn25144/WebCore/rendering/break_lines.cpp
 --- webkit-0~svn25144.orig/WebCore/rendering/break_lines.cpp	2008-01-16 19:22:49.000000000 +0700
-+++ webkit-0~svn25144/WebCore/rendering/break_lines.cpp	2008-01-17 11:09:31.000000000 +0700
-@@ -111,4 +111,138 @@
++++ webkit-0~svn25144/WebCore/rendering/break_lines.cpp	2008-01-17 13:23:53.000000000 +0700
+@@ -111,4 +111,139 @@
      return len;
  }
  
@@ -52,7 +52,7 @@ diff -uNr webkit-0~svn25144.orig/WebCore/rendering/break_lines.cpp webkit-0~svn2
 +    cache = 0;
 +#ifndef HAVE_LIBTHAI
 +    th_brk = 0;
-+	th_uni2tis_line = 0;
++    th_uni2tis_line = 0;
 +#endif
 +}
 +
@@ -61,6 +61,7 @@ diff -uNr webkit-0~svn25144.orig/WebCore/rendering/break_lines.cpp webkit-0~svn2
 + * include the header file when compilng
 +*/
 +#include <dlfcn.h>
++#include <stdio.h>
 +bool isBreakableThai( const UChar *string, const int pos, const int len)
 +{
 +	unsigned char* tis_char;
@@ -131,7 +132,7 @@ diff -uNr webkit-0~svn25144.orig/WebCore/rendering/break_lines.cpp webkit-0~svn2
 +              cache->isbreakable[cache->wbrpos[i]] = 1;
 +  	    }
 +  	  }
-+         cache->string = string;
++          cache->string = string;
 +	  delete(tis_char);
 +	  delete(w_char);
 + 	}
