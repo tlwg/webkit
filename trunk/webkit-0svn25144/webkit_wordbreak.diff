@@ -1,7 +1,7 @@
 diff -uNr webkit-0~svn25144.orig/WebCore/rendering/break_lines.cpp webkit-0~svn25144/WebCore/rendering/break_lines.cpp
---- webkit-0~svn25144.orig/WebCore/rendering/break_lines.cpp	2008-01-16 19:22:49.000000000 +0700
-+++ webkit-0~svn25144/WebCore/rendering/break_lines.cpp	2008-01-17 13:23:53.000000000 +0700
-@@ -111,4 +111,139 @@
+--- webkit-0~svn25144.orig/WebCore/rendering/break_lines.cpp	2007-08-19 12:15:15.000000000 +0700
++++ webkit-0~svn25144/WebCore/rendering/break_lines.cpp	2008-01-22 09:33:04.000000000 +0700
+@@ -111,4 +111,138 @@
      return len;
  }
  
@@ -73,7 +73,7 @@ diff -uNr webkit-0~svn25144.orig/WebCore/rendering/break_lines.cpp webkit-0~svn2
 +    if (!th_brk && !th_uni2tis_line && !trymore) {
 +      return 0;
 +    } else if ( !th_brk && trymore ) {
-+    	module = dlopen("libthai.so", RTLD_LAZY);
++    	module = dlopen("libthai.so.0", RTLD_LAZY);
 +    	if (!module) {
 +      	  printf("Warning: couldn't open libthai.so: %s, thai word break feature disabled\n", dlerror());
 +          // no wordcut library, break anywhere is ok
@@ -116,9 +116,8 @@ diff -uNr webkit-0~svn25144.orig/WebCore/rendering/break_lines.cpp webkit-0~svn2
 +
 +	  if (cache->numwbrpos >= cache->allocated) {
 +	    cache->allocated = len;
-+           cache->wbrpos = (int *)realloc(cache->wbrpos, cache->allocated*sizeof(int));
-+           cache->numwbrpos = th_brk(tis_char, cache->wbrpos, cache->allocated);
-+	    cache->wbrpos = (int *)realloc(cache->wbrpos, cache->numwbrpos*sizeof(int));	
++            cache->wbrpos = (int *)realloc(cache->wbrpos, cache->allocated*sizeof(int));
++            cache->numwbrpos = th_brk(tis_char, cache->wbrpos, cache->allocated);
 +  	  }
 +  	  if ( len > cache->numisbreakable ) {
 +  	    cache->numisbreakable=len;
@@ -142,8 +141,8 @@ diff -uNr webkit-0~svn25144.orig/WebCore/rendering/break_lines.cpp webkit-0~svn2
 +#endif
  } // namespace WebCore
 diff -uNr webkit-0~svn25144.orig/WebCore/rendering/break_lines.h webkit-0~svn25144/WebCore/rendering/break_lines.h
---- webkit-0~svn25144.orig/WebCore/rendering/break_lines.h	2008-01-16 19:22:49.000000000 +0700
-+++ webkit-0~svn25144/WebCore/rendering/break_lines.h	2008-01-17 11:11:54.000000000 +0700
+--- webkit-0~svn25144.orig/WebCore/rendering/break_lines.h	2007-08-19 12:15:15.000000000 +0700
++++ webkit-0~svn25144/WebCore/rendering/break_lines.h	2008-01-22 09:31:40.000000000 +0700
 @@ -28,9 +28,19 @@
  namespace WebCore {
  
